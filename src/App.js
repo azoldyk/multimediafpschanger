@@ -1,14 +1,14 @@
 import React, { useState } from 'react';
-import { 
-  AppBar, 
-  Container, 
-  CssBaseline, 
-  ThemeProvider, 
-  Toolbar, 
-  Typography, 
-  createTheme, 
+import {
+  AppBar,
+  Container,
+  CssBaseline,
+  ThemeProvider,
+  Toolbar,
+  Typography,
+  createTheme,
   Box,
-  Paper, 
+  Paper,
   Grid,
   useMediaQuery,
   List,
@@ -18,6 +18,7 @@ import {
 } from '@mui/material';
 import FileUploader from './components/FileUploader';
 import MediaPreviewer from './components/MediaPreviewer';
+import VideoEditor from './components/VideoEditor';
 import AutoAwesome from '@mui/icons-material/AutoAwesome';
 
 // Create a dark theme
@@ -151,6 +152,9 @@ const styles = {
 
 function App() {
   const [selectedFile, setSelectedFile] = useState(null);
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [defaultFps, setDefaultFps] = useState(30);
+  const [currentFps, setCurrentFps] = useState(30);
   const isMobile = useMediaQuery('(max-width:600px)');
 
   const handleFileSelect = (file) => {
@@ -161,7 +165,7 @@ function App() {
     }
     setSelectedFile(file);
   };
-  
+
   // Helper function to format file size
   const formatFileSize = (bytes) => {
     if (bytes === 0) return '0 Bytes';
@@ -171,6 +175,43 @@ function App() {
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   };
 
+  const handleEnterEditMode = () => {
+    if (selectedFile) {
+      setIsEditMode(true);
+    }
+  };
+
+  const handleExitEditMode = () => {
+    setIsEditMode(false);
+  };
+
+  const handleFpsChange = (newFps) => {
+    setCurrentFps(newFps);
+  };
+
+  const handleDefaultFpsChange = (newDefaultFps) => {
+    setDefaultFps(newDefaultFps);
+    setCurrentFps(newDefaultFps);
+  };
+
+  // Render Edit Mode
+  if (isEditMode && selectedFile) {
+    return (
+      <ThemeProvider theme={darkTheme}>
+        <CssBaseline />
+        <VideoEditor
+          file={selectedFile}
+          onExitEdit={handleExitEditMode}
+          defaultFps={defaultFps}
+          currentFps={currentFps}
+          onFpsChange={handleFpsChange}
+          onDefaultFpsChange={handleDefaultFpsChange}
+        />
+      </ThemeProvider>
+    );
+  }
+
+  // Render View Mode
   return (
     <ThemeProvider theme={darkTheme}>
       <CssBaseline />
@@ -192,43 +233,43 @@ function App() {
                 Set your own default FPS and adjust video playback speed by changing the frame rate.
               </Typography>
             </Box>
-            
+
             <Box style={styles.infoBox}>
               <List sx={{ padding: 0 }}>
                 <ListItem>
                   <ListItemIcon>
                     <AutoAwesome style={{ color: darkTheme.palette.primary.main }} />
                   </ListItemIcon>
-                  <ListItemText 
-                    primary="Custom Default FPS" 
-                    secondary="Set your own default framerate for video playback" 
+                  <ListItemText
+                    primary="Custom Default FPS"
+                    secondary="Set your own default framerate for video playback"
                   />
                 </ListItem>
                 <ListItem>
                   <ListItemIcon>
                     <AutoAwesome style={{ color: darkTheme.palette.primary.main }} />
                   </ListItemIcon>
-                  <ListItemText 
-                    primary="Accurate Playback Control" 
-                    secondary="Adjust FPS with precision controls and custom presets" 
+                  <ListItemText
+                    primary="Accurate Playback Control"
+                    secondary="Adjust FPS with precision controls and custom presets"
                   />
                 </ListItem>
                 <ListItem>
                   <ListItemIcon>
                     <AutoAwesome style={{ color: darkTheme.palette.primary.main }} />
                   </ListItemIcon>
-                  <ListItemText 
-                    primary="Audio Synchronization" 
-                    secondary="Maintains perfect audio sync regardless of playback speed" 
+                  <ListItemText
+                    primary="Audio Synchronization"
+                    secondary="Maintains perfect audio sync regardless of playback speed"
                   />
                 </ListItem>
                 <ListItem>
                   <ListItemIcon>
                     <AutoAwesome style={{ color: darkTheme.palette.primary.main }} />
                   </ListItemIcon>
-                  <ListItemText 
-                    primary="Easy Workflow" 
-                    secondary="Drag & drop video files to instantly adjust" 
+                  <ListItemText
+                    primary="Easy Workflow"
+                    secondary="Drag & drop video files to instantly adjust"
                   />
                 </ListItem>
               </List>
@@ -236,9 +277,12 @@ function App() {
           </Paper>
 
           <Box sx={{ mb: 3 }}>
-            <MediaPreviewer file={selectedFile} />
+            <MediaPreviewer
+              file={selectedFile}
+              onEnterEditMode={handleEnterEditMode}
+            />
           </Box>
-          
+
           <Box>
             <FileUploader onFileSelect={handleFileSelect} selectedFile={selectedFile} />
           </Box>

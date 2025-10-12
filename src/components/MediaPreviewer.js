@@ -14,7 +14,7 @@ import {
   Button,
   Slider
 } from '@mui/material';
-import { 
+import {
   Speed as SpeedIcon,
   VideoSettings as VideoIcon,
   RestartAlt as ResetIcon,
@@ -22,7 +22,8 @@ import {
   Pause as PauseIcon,
   VolumeUp as VolumeIcon,
   VolumeOff as MuteIcon,
-  Fullscreen as FullscreenIcon
+  Fullscreen as FullscreenIcon,
+  Edit as EditIcon
 } from '@mui/icons-material';
 import FpsControl from './FpsControl';
 import { applyFpsAdjustment } from '../utils/videoUtils';
@@ -247,7 +248,7 @@ const styles = {
   },
 };
 
-const MediaPreviewer = ({ file }) => {
+const MediaPreviewer = ({ file, onEnterEditMode }) => {
   const [loading, setLoading] = useState(false);
   const [defaultFps, setDefaultFps] = useState(30);
   const [currentFps, setCurrentFps] = useState(30);
@@ -639,11 +640,23 @@ const MediaPreviewer = ({ file }) => {
   
   return (
     <Paper elevation={5} style={styles.previewContainer}>
-      <Box style={styles.fileTitle}>
-        <VideoIcon style={styles.titleIcon} />
-        <Typography variant="h6" component="div">
-          {file.name}
-        </Typography>
+      <Box style={{...styles.fileTitle, justifyContent: 'space-between'}}>
+        <Box style={{display: 'flex', alignItems: 'center', gap: '8px'}}>
+          <VideoIcon style={styles.titleIcon} />
+          <Typography variant="h6" component="div">
+            {file.name}
+          </Typography>
+        </Box>
+        {isVideo && onEnterEditMode && (
+          <Button
+            variant="contained"
+            color="primary"
+            startIcon={<EditIcon />}
+            onClick={onEnterEditMode}
+          >
+            Edit
+          </Button>
+        )}
       </Box>
       
       {loading && (
