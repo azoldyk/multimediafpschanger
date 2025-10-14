@@ -4,11 +4,14 @@ import {
   Button,
   IconButton,
   Typography,
-  Paper
+  Paper,
+  Slider
 } from '@mui/material';
 import {
   Close as CloseIcon,
-  Save as SaveIcon
+  Save as SaveIcon,
+  VolumeUp as VolumeIcon,
+  VolumeOff as MuteIcon
 } from '@mui/icons-material';
 import FpsControl from './FpsControl';
 import VideoPreviewPanel from './VideoPreviewPanel';
@@ -39,6 +42,17 @@ const styles = {
     display: 'flex',
     gap: '8px',
   },
+  volumeControl: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px',
+    padding: '0 16px',
+    minWidth: '200px',
+  },
+  volumeSlider: {
+    color: '#f50057',
+    width: '120px',
+  },
   previewSection: {
     flex: '1 1 60%',
     display: 'flex',
@@ -67,6 +81,8 @@ const VideoEditor = ({ file, onExitEdit, defaultFps, currentFps, onFpsChange, on
   const [timelineZoom, setTimelineZoom] = useState(1);
   const [timelineScroll, setTimelineScroll] = useState(0);
   const [audioWaveformData, setAudioWaveformData] = useState([]);
+  const [volume, setVolume] = useState(1);
+  const [muted, setMuted] = useState(false);
   const videoRef = useRef(null);
 
   // Handle keyboard shortcuts
@@ -158,6 +174,8 @@ const VideoEditor = ({ file, onExitEdit, defaultFps, currentFps, onFpsChange, on
   const handleVideoLoaded = () => {
     if (videoRef.current) {
       setDuration(videoRef.current.duration);
+      // Set initial volume
+      videoRef.current.volume = volume;
     }
   };
 
@@ -178,6 +196,27 @@ const VideoEditor = ({ file, onExitEdit, defaultFps, currentFps, onFpsChange, on
     alert('Save functionality will be implemented in future updates');
   };
 
+  const handleVolumeChange = (_, newValue) => {
+    if (videoRef.current) {
+      setVolume(newValue);
+      videoRef.current.volume = newValue;
+      setMuted(newValue === 0);
+    }
+  };
+
+  const toggleMute = () => {
+    if (videoRef.current) {
+      if (muted) {
+        videoRef.current.muted = false;
+        videoRef.current.volume = volume > 0 ? volume : 0.5;
+        setVolume(volume > 0 ? volume : 0.5);
+      } else {
+        videoRef.current.muted = true;
+      }
+      setMuted(!muted);
+    }
+  };
+
   return (
     <Box style={styles.container}>
       {/* Top Bar */}
@@ -187,6 +226,27 @@ const VideoEditor = ({ file, onExitEdit, defaultFps, currentFps, onFpsChange, on
             originalFps={defaultFps}
             onFpsChange={onFpsChange}
           />
+        </Box>
+
+        <Box style={styles.volumeControl}>
+          <IconButton
+            onClick={toggleMute}
+            sx={{ color: 'white', padding: '8px' }}
+          >
+            {muted ? <MuteIcon /> : <VolumeIcon />}
+          </IconButton>
+          <Slider
+            value={muted ? 0 : volume}
+            min={0}
+            max={1}
+            step={0.01}
+            onChange={handleVolumeChange}
+            style={styles.volumeSlider}
+            size="small"
+          />
+          <Typography variant="body2" sx={{ color: 'white', minWidth: '40px' }}>
+            {Math.round((muted ? 0 : volume) * 100)}%
+          </Typography>
         </Box>
 
         <Box style={styles.actionButtons}>
