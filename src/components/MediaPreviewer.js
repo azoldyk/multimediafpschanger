@@ -229,7 +229,8 @@ const styles = {
   fileTitle: {
     marginBottom: 16,
     display: 'flex',
-    alignItems: 'center',
+    flexDirection: 'column',
+    alignItems: 'flex-start',
     gap: '8px',
   },
   titleIcon: {
@@ -640,7 +641,7 @@ const MediaPreviewer = ({ file, onEnterEditMode }) => {
   
   return (
     <Paper elevation={5} style={styles.previewContainer}>
-      <Box style={{...styles.fileTitle, justifyContent: 'space-between'}}>
+      <Box style={styles.fileTitle}>
         <Box style={{display: 'flex', alignItems: 'center', gap: '8px'}}>
           <VideoIcon style={styles.titleIcon} />
           <Typography variant="h6" component="div">
@@ -653,6 +654,7 @@ const MediaPreviewer = ({ file, onEnterEditMode }) => {
             color="primary"
             startIcon={<EditIcon />}
             onClick={onEnterEditMode}
+            sx={{ mt: 1 }}
           >
             Edit
           </Button>
