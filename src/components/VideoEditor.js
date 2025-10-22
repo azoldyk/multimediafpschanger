@@ -1,21 +1,8 @@
-import React, { useState, useEffect, useRef } from 'react';
-import {
-  Box,
-  Button,
-  IconButton,
-  Typography,
-  Paper,
-  Slider
-} from '@mui/material';
-import {
-  Close as CloseIcon,
-  Save as SaveIcon,
-  VolumeUp as VolumeIcon,
-  VolumeOff as MuteIcon
-} from '@mui/icons-material';
+import React, { useState, useRef, useEffect } from 'react';
+import { Box } from '@mui/material';
 import FpsControl from './FpsControl';
 import VideoPreviewPanel from './VideoPreviewPanel';
-import TimelineCanvas from './TimelineCanvas';
+import TimelineEditor from './timeline/TimelineEditor';
 
 const styles = {
   container: {
@@ -76,111 +63,48 @@ const styles = {
 
 const VideoEditor = ({ file, onExitEdit, defaultFps, currentFps, onFpsChange, onDefaultFpsChange }) => {
   const [playheadPosition, setPlayheadPosition] = useState(0);
-  const [duration, setDuration] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
-  const [timelineZoom, setTimelineZoom] = useState(1);
-  const [timelineScroll, setTimelineScroll] = useState(0);
-  const [audioWaveformData, setAudioWaveformData] = useState([]);
-  const [volume, setVolume] = useState(1);
-  const [muted, setMuted] = useState(false);
+  const [activeClip, setActiveClip] = useState(null);
+  const [isMuted, setIsMuted] = useState(false);
   const videoRef = useRef(null);
 
-  // Handle keyboard shortcuts
-  useEffect(() => {
-    const handleKeyDown = (e) => {
-      // Space: Restart from beginning
-      if (e.code === 'Space') {
-        e.preventDefault();
-        setPlayheadPosition(0);
-        if (videoRef.current) {
-          videoRef.current.currentTime = 0;
-          videoRef.current.play();
-          setIsPlaying(true);
-        }
-      }
-
-      // Enter: Pause/Play from current position
-      if (e.code === 'Enter') {
-        e.preventDefault();
-        if (videoRef.current) {
-          if (isPlaying) {
-            videoRef.current.pause();
-            setIsPlaying(false);
-          } else {
-            videoRef.current.play();
-            setIsPlaying(true);
-          }
-        }
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => {
-      window.removeEventListener('keydown', handleKeyDown);
-    };
-  }, [isPlaying]);
-
-  // Generate audio waveform when file loads
-  useEffect(() => {
-    if (!file) return;
-
-    const generateWaveform = async () => {
-      try {
-        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
-        const arrayBuffer = await file.arrayBuffer();
-        const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
-
-        const rawData = audioBuffer.getChannelData(0);
-        const samples = 1000; // Number of samples for waveform
-        const blockSize = Math.floor(rawData.length / samples);
-        const waveform = [];
-
-        for (let i = 0; i < samples; i++) {
-          let sum = 0;
-          for (let j = 0; j < blockSize; j++) {
-            sum += Math.abs(rawData[i * blockSize + j]);
-          }
-          waveform.push(sum / blockSize);
-        }
-
-        // Normalize waveform
-        const max = Math.max(...waveform);
-        const normalized = waveform.map(v => v / max);
-
-        setAudioWaveformData(normalized);
-      } catch (error) {
-        console.error('Error generating waveform:', error);
-        // Set empty waveform on error
-        setAudioWaveformData([]);
-      }
-    };
-
-    generateWaveform();
-  }, [file]);
-
-  const handlePlayheadMove = (newPosition) => {
+  const handlePlayheadMove = (newPosition, tracks) => {
     setPlayheadPosition(newPosition);
-    if (videoRef.current) {
-      videoRef.current.currentTime = newPosition;
-    }
-  };
 
-  const handleVideoTimeUpdate = () => {
-    if (videoRef.current && isPlaying) {
-      setPlayheadPosition(videoRef.current.currentTime);
-    }
-  };
+    // Find which clip is at the current playhead position
+    if (tracks) {
+      let foundClip = null;
+      for (const track of tracks) {
+        if (track.type === 'video' && !track.muted) {
+          const clip = track.clips.find(
+            c => newPosition >= c.startTime && newPosition < c.startTime + c.duration
+          );
+          if (clip) {
+            foundClip = { ...clip, trackMuted: track.muted };
+            break;
+          }
+        }
+      }
 
-  const handleVideoLoaded = () => {
-    if (videoRef.current) {
-      setDuration(videoRef.current.duration);
-      // Set initial volume
-      videoRef.current.volume = volume;
+      setActiveClip(foundClip);
+
+      // Update video element
+      if (videoRef.current && foundClip) {
+        // Calculate the time within the clip (accounting for trim)
+        const timeInClip = newPosition - foundClip.startTime;
+        const actualVideoTime = foundClip.trimStart + timeInClip;
+        videoRef.current.currentTime = actualVideoTime;
+        videoRef.current.muted = foundClip.trackMuted || isMuted;
+      } else if (videoRef.current) {
+        // No clip at this position, pause
+        videoRef.current.pause();
+        setIsPlaying(false);
+      }
     }
   };
 
   const handlePlayPause = () => {
-    if (videoRef.current) {
+    if (videoRef.current && activeClip) {
       if (isPlaying) {
         videoRef.current.pause();
       } else {
@@ -190,95 +114,43 @@ const VideoEditor = ({ file, onExitEdit, defaultFps, currentFps, onFpsChange, on
     }
   };
 
-  const handleSave = () => {
-    // Placeholder for save functionality
-    console.log('Save functionality not yet implemented');
-    alert('Save functionality will be implemented in future updates');
-  };
-
-  const handleVolumeChange = (_, newValue) => {
+  const handleTrackMuteChange = (muted) => {
+    setIsMuted(muted);
     if (videoRef.current) {
-      setVolume(newValue);
-      videoRef.current.volume = newValue;
-      setMuted(newValue === 0);
+      videoRef.current.muted = muted;
     }
   };
 
-  const toggleMute = () => {
-    if (videoRef.current) {
-      if (muted) {
-        videoRef.current.muted = false;
-        videoRef.current.volume = volume > 0 ? volume : 0.5;
-        setVolume(volume > 0 ? volume : 0.5);
+  // Sync video playback with timeline
+  useEffect(() => {
+    if (videoRef.current && activeClip) {
+      if (isPlaying) {
+        videoRef.current.play().catch(err => {
+          console.log('Play error:', err);
+          setIsPlaying(false);
+        });
       } else {
-        videoRef.current.muted = true;
+        videoRef.current.pause();
       }
-      setMuted(!muted);
     }
-  };
+  }, [isPlaying, activeClip]);
 
   return (
     <Box style={styles.container}>
-      {/* Top Bar */}
-      <Box style={styles.topBar}>
-        <Box style={styles.fpsControlContainer}>
+      {/* Video Preview Section */}
+      <Box style={styles.previewSection}>
+        <Box style={styles.fpsControlContainer} sx={{ position: 'absolute', top: 16, left: 16, zIndex: 10 }}>
           <FpsControl
             originalFps={defaultFps}
             onFpsChange={onFpsChange}
           />
         </Box>
-
-        <Box style={styles.volumeControl}>
-          <IconButton
-            onClick={toggleMute}
-            sx={{ color: 'white', padding: '8px' }}
-          >
-            {muted ? <MuteIcon /> : <VolumeIcon />}
-          </IconButton>
-          <Slider
-            value={muted ? 0 : volume}
-            min={0}
-            max={1}
-            step={0.01}
-            onChange={handleVolumeChange}
-            style={styles.volumeSlider}
-            size="small"
-          />
-          <Typography variant="body2" sx={{ color: 'white', minWidth: '40px' }}>
-            {Math.round((muted ? 0 : volume) * 100)}%
-          </Typography>
-        </Box>
-
-        <Box style={styles.actionButtons}>
-          <Button
-            variant="outlined"
-            color="secondary"
-            startIcon={<SaveIcon />}
-            onClick={handleSave}
-          >
-            Save
-          </Button>
-          <Button
-            variant="contained"
-            color="primary"
-            startIcon={<CloseIcon />}
-            onClick={onExitEdit}
-          >
-            Exit Edit
-          </Button>
-        </Box>
-      </Box>
-
-      {/* Video Preview Section */}
-      <Box style={styles.previewSection}>
         <VideoPreviewPanel
           file={file}
           videoRef={videoRef}
           currentTime={playheadPosition}
           isPlaying={isPlaying}
           onPlayPause={handlePlayPause}
-          onTimeUpdate={handleVideoTimeUpdate}
-          onLoaded={handleVideoLoaded}
           defaultFps={defaultFps}
           currentFps={currentFps}
         />
@@ -286,16 +158,12 @@ const VideoEditor = ({ file, onExitEdit, defaultFps, currentFps, onFpsChange, on
 
       {/* Timeline Section */}
       <Box style={styles.timelineSection}>
-        <TimelineCanvas
-          duration={duration}
-          playheadPosition={playheadPosition}
-          onPlayheadMove={handlePlayheadMove}
-          zoom={timelineZoom}
-          onZoomChange={setTimelineZoom}
-          scroll={timelineScroll}
-          onScrollChange={setTimelineScroll}
-          audioWaveformData={audioWaveformData}
-          isPlaying={isPlaying}
+        <TimelineEditor
+          file={file}
+          onExitEdit={onExitEdit}
+          onPlayheadChange={handlePlayheadMove}
+          onTrackMuteChange={handleTrackMuteChange}
+          onPlayingChange={setIsPlaying}
         />
       </Box>
     </Box>
